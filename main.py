@@ -11,12 +11,8 @@ import sys
 import matplotlib.pyplot as plt
 from PIL import Image
 import glob
-import tensorflow as tf
 
 os.environ['KERAS_BACKEND'] = "tensorflow"
-
-tf.config.threading.set_intra_op_parallelism_threads(100)
-tf.config.threading.set_inter_op_parallelism_threads(100)
 
 SIDE = 200
 IMAGE_SIZE = SIDE*SIDE*3
@@ -68,7 +64,7 @@ def load_landscapes_data():
         np.save("land_data", data)
     return data, None, None, None
 
-def train(epochs=1, batch_size=128):
+def train(epochs=1, batch_size=128, generator=None, discriminator=None):
     x_train, _, _, _ = load_landscapes_data()
     
     size = x_train.shape[0]
@@ -77,8 +73,10 @@ def train(epochs=1, batch_size=128):
     batch_count = int(x_train.shape[0] / batch_size)
     optimizer = adam_v2.Adam(learning_rate=0.0002, beta_1=0.5)
 
-    discriminator = get_discriminator(optimizer)
-    generator = get_generator(INITIAL_DIM, optimizer)
+    if discriminator is None:
+        discriminator = get_discriminator(optimizer)
+    if generator is None:
+        generator = get_generator(INITIAL_DIM, optimizer)
     gan = get_gan(discriminator, generator, INITIAL_DIM, optimizer)
 
     for epoch in range(1, epochs+1):
@@ -106,25 +104,26 @@ def train(epochs=1, batch_size=128):
             discriminator.trainable = False
             gan.train_on_batch(initial, y)
 
-    return generator
+    return generator, discriminator
 
 
-def generate_images(n, generator):
+def generate_images(n, generator, discriminator):
     initial = np.random.normal(0, 1, size=[n, INITIAL_DIM])
     pics = generator.predict(initial)
+    is_good = discriminator.predict(pics)
 
     pics = pics.reshape((n, SIDE, SIDE, 3))
 
     fig = plt.figure()
     for i in range(n):
-        fig.add_subplot(1, n, i+1)
+        fig.add_subplot(1, n, i+1, title="Discrim : %f" % is_good[i])
         plt.imshow(pics[i], interpolation='nearest')
     plt.show(block=True)
 
-def show_data(n):
+def show_data(n=3):
     data, _, _, _ = load_landscapes_data()
 
-    pics = np.array([data[np.random.randint(data.shape[0])] for i in range(n)])
+    pics = np.array([data[np.random.randint(data.shape[0])] for _ in range(n)])
     pics = pics.reshape((n, SIDE, SIDE, 3))
 
     fig = plt.figure()
@@ -133,19 +132,46 @@ def show_data(n):
         plt.imshow(pics[i], interpolation='nearest')
     plt.show(block=True)
 
+def test_discriminator(discriminator, n=3):
+    data, _, _, _ = load_landscapes_data()
+
+    pics = np.array([data[np.random.randint(data.shape[0])] for _ in range(n)])
+    prediction = discriminator.predict(pics)
+
+    print(prediction)
+    print(np.average(abs(prediction-1)))
+
+    fakes = np.random.rand(n, IMAGE_SIZE)
+    prediction = discriminator.predict(fakes)
+
+    print(prediction)
+    print(np.average(prediction))
+
 if __name__ == "__main__":
+    epochs = 15
+    batch_size = 128
+
     use_old = (len(sys.argv) > 1 and sys.argv[1] == "no-new")
 
     if use_old:
         generator = load_model("./generator.model")
+        discriminator = load_model("./discriminator.model")
     else:
-        generator = train(20, 32)
+        if os.path.exists("./discriminator.model"):
+            discriminator = load_model("./discriminator.model")
+            discriminator._name = "discriminator" # evil, do not do this
+            generator, _ = train(epochs=epochs, batch_size=batch_size, discriminator=discriminator)
+        else:
+            generator, discriminator = train(epochs, batch_size)
 
-    generate_images(3, generator)
+    generate_images(3, generator, discriminator)
     #show_data(3)
+    test_discriminator(discriminator, 5)
 
     if not use_old:
         generator.save("./generator.model")
+        discriminator.save("./discriminator.model")
+
     exit(0)
     
     

@@ -13,6 +13,9 @@ def get_generator(initial_dim, optimizer):
     generator.add(Dense(512))
     generator.add(LeakyReLU(0.2))
 
+    generator.add(Dense(512))
+    generator.add(LeakyReLU(0.2))
+
     generator.add(Dense(1024))
     generator.add(LeakyReLU(0.2))
 

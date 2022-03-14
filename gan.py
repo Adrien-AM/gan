@@ -3,7 +3,7 @@ from keras.models import Input, Model
 
 def get_gan(discriminator, generator, initial_dim, optimizer):
     # why discriminator and not generator ??
-    discriminator.trainable = False
+    #discriminator.trainable = False
 
     gan_input = Input(shape=(initial_dim,))
 
