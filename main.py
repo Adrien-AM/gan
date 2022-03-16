@@ -3,9 +3,9 @@ from tqdm import tqdm
 from keras.datasets import mnist
 from keras.optimizers import adam_v2
 from keras.models import load_model
-from discriminator import get_discriminator
+from discriminator import get_discriminator, get_discriminator_v2
 from gan import get_gan
-from generator import get_generator
+from generator import get_generator, get_generator_v2
 import os
 import sys
 import matplotlib.pyplot as plt
@@ -14,9 +14,9 @@ import glob
 
 os.environ['KERAS_BACKEND'] = "tensorflow"
 
-SIDE = 200
-IMAGE_SIZE = SIDE*SIDE*3
-INITIAL_DIM = 1000
+SIDE = 28
+IMAGE_SIZE = SIDE*SIDE
+INITIAL_DIM = 50
 
 # copy pasted
 def load_minst_data():
@@ -26,9 +26,9 @@ def load_minst_data():
     x_train = (x_train.astype(np.float32) - 127.5)/127.5
     # convert x_train with a shape of (60000, 28, 28) to (60000, 784) so we have
     # 784 columns per row
-    x_train = x_train.reshape(60000, IMAGE_SIZE)
+    #x_train = x_train.reshape(60000, IMAGE_SIZE)
     
-    return (x_train, y_train, x_test, y_test)
+    return (x_train[:10000], y_train, x_test, y_test)
 
 def load_vg_data():
     data = []
@@ -65,7 +65,7 @@ def load_landscapes_data():
     return data, None, None, None
 
 def train(epochs=1, batch_size=128, generator=None, discriminator=None):
-    x_train, _, _, _ = load_landscapes_data()
+    x_train, _, _, _ = load_minst_data()
     
     size = x_train.shape[0]
     x_train = x_train[:size]
@@ -74,9 +74,10 @@ def train(epochs=1, batch_size=128, generator=None, discriminator=None):
     optimizer = adam_v2.Adam(learning_rate=0.0002, beta_1=0.5)
 
     if discriminator is None:
-        discriminator = get_discriminator(optimizer)
+        discriminator = get_discriminator_v2(optimizer)
     if generator is None:
-        generator = get_generator(INITIAL_DIM, optimizer)
+        generator = get_generator_v2(INITIAL_DIM, optimizer)
+
     gan = get_gan(discriminator, generator, INITIAL_DIM, optimizer)
 
     for epoch in range(1, epochs+1):
@@ -88,6 +89,8 @@ def train(epochs=1, batch_size=128, generator=None, discriminator=None):
 
             # generate images
             generated = generator.predict(initial)
+            generated = generated.reshape(generated.shape[0], SIDE, SIDE)
+
             # mix with real images
             X = np.concatenate([image_batch, generated])
             # labels
@@ -112,48 +115,48 @@ def generate_images(n, generator, discriminator):
     pics = generator.predict(initial)
     is_good = discriminator.predict(pics)
 
-    pics = pics.reshape((n, SIDE, SIDE, 3))
+    #pics = pics.reshape((n, SIDE, SIDE))
 
     fig = plt.figure()
     for i in range(n):
         fig.add_subplot(1, n, i+1, title="Discrim : %f" % is_good[i])
-        plt.imshow(pics[i], interpolation='nearest')
+        plt.imshow(pics[i], interpolation='nearest', cmap="gray")
     plt.show(block=True)
 
 def show_data(n=3):
-    data, _, _, _ = load_landscapes_data()
+    data, _, _, _ = load_minst_data()
 
     pics = np.array([data[np.random.randint(data.shape[0])] for _ in range(n)])
-    pics = pics.reshape((n, SIDE, SIDE, 3))
+    #pics = pics.reshape((n, SIDE, SIDE))
 
     fig = plt.figure()
     for i in range(n):
         fig.add_subplot(1, n, i+1)
-        plt.imshow(pics[i], interpolation='nearest')
+        plt.imshow(pics[i], interpolation='nearest', cmap="gray")
     plt.show(block=True)
 
 def test_discriminator(discriminator, n=3):
-    data, _, _, _ = load_landscapes_data()
+    data, _, _, _ = load_minst_data()
 
     pics = np.array([data[np.random.randint(data.shape[0])] for _ in range(n)])
     prediction = discriminator.predict(pics)
 
-    print(prediction)
-    print(np.average(abs(prediction-1)))
+    #print(prediction)
+    print("Average prediction error for real data : ", np.average(abs(prediction-1)))
 
-    fakes = np.random.rand(n, IMAGE_SIZE)
+    fakes = np.random.rand(n, SIDE, SIDE)
     prediction = discriminator.predict(fakes)
 
-    print(prediction)
-    print(np.average(prediction))
+    #print(prediction)
+    print("Average prediction error for fakes : ", np.average(prediction))
 
 if __name__ == "__main__":
-    epochs = 15
-    batch_size = 128
+    epochs = 200
+    batch_size = 256
 
-    use_old = (len(sys.argv) > 1 and sys.argv[1] == "no-new")
+    no_new = (len(sys.argv) > 1 and sys.argv[1] == "no-new")
 
-    if use_old:
+    if no_new:
         generator = load_model("./generator.model")
         discriminator = load_model("./discriminator.model")
     else:
@@ -165,10 +168,10 @@ if __name__ == "__main__":
             generator, discriminator = train(epochs, batch_size)
 
     generate_images(3, generator, discriminator)
-    #show_data(3)
+    #show_data(5)
     test_discriminator(discriminator, 5)
 
-    if not use_old:
+    if not no_new:
         generator.save("./generator.model")
         discriminator.save("./discriminator.model")
 

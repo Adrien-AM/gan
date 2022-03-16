@@ -1,8 +1,8 @@
-from keras.layers import Dense, LeakyReLU, Dropout
-from keras.models import Model, Sequential
+from keras.layers import Dense, LeakyReLU, Dropout, Conv2D, Flatten, MaxPooling2D, Reshape
+from keras.models import Sequential
 
-SIDE = 200
-IMAGE_SIZE = SIDE*SIDE*3
+SIDE = 28
+IMAGE_SIZE = SIDE*SIDE
 
 def get_discriminator(optimizer):
     discriminator = Sequential()
@@ -15,14 +15,6 @@ def get_discriminator(optimizer):
     discriminator.add(LeakyReLU(0.2)) # activation function
     discriminator.add(Dropout(0.3)) # avoid overfitting
 
-    discriminator.add(Dense(512))
-    discriminator.add(LeakyReLU(0.2)) # activation function
-    discriminator.add(Dropout(0.3)) # avoid overfitting
-
-    discriminator.add(Dense(256))
-    discriminator.add(LeakyReLU(0.2)) # activation function
-    discriminator.add(Dropout(0.3)) # avoid overfittings
-
     discriminator.add(Dense(256))
     discriminator.add(LeakyReLU(0.2)) # activation function
     discriminator.add(Dropout(0.3)) # avoid overfitting
@@ -32,7 +24,26 @@ def get_discriminator(optimizer):
 
     return discriminator
 
+def get_discriminator_v2(optimizer):
+    discriminator = Sequential()
 
+    discriminator.add(Reshape((SIDE, SIDE, 1), input_shape=(SIDE, SIDE)))
+
+    discriminator.add(Conv2D(filters=16, kernel_size=4, strides=2))
+    discriminator.add(LeakyReLU(0.2))
+    discriminator.add(MaxPooling2D((2,2))) # avoid overfitting
+
+    discriminator.add(Conv2D(filters=16, kernel_size=4, strides=2))
+    discriminator.add(LeakyReLU(0.2))
+    discriminator.add(MaxPooling2D((2,2))) # avoid overfitting
+
+    discriminator.add(Flatten())
+    discriminator.add(Dropout(0.2))
+
+    discriminator.add(Dense(1, activation="sigmoid"))
+
+    discriminator.compile(optimizer=optimizer, loss="binary_crossentropy")
+    return discriminator
 
 ''' INTERESTING
 # DCGAN discriminator
