@@ -1,4 +1,4 @@
-from keras.layers import Dense, LeakyReLU, Dropout, Conv2D, Flatten, MaxPooling2D, Reshape
+from keras.layers import Dense, LeakyReLU, Dropout, Conv2D, Flatten, BatchNormalization, Reshape
 from keras.models import Sequential
 
 SIDE = 28
@@ -27,15 +27,20 @@ def get_discriminator(optimizer):
 def get_discriminator_v2(optimizer):
     discriminator = Sequential()
 
+    kernel_size = 3
+
     discriminator.add(Reshape((SIDE, SIDE, 1), input_shape=(SIDE, SIDE)))
 
-    discriminator.add(Conv2D(filters=16, kernel_size=4, strides=2))
+    discriminator.add(Conv2D(filters=64, kernel_size=kernel_size, strides=2))
     discriminator.add(LeakyReLU(0.2))
-    discriminator.add(MaxPooling2D((2,2))) # avoid overfitting
 
-    discriminator.add(Conv2D(filters=16, kernel_size=4, strides=2))
+    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2))
+    discriminator.add(BatchNormalization(momentum=0.8))
     discriminator.add(LeakyReLU(0.2))
-    discriminator.add(MaxPooling2D((2,2))) # avoid overfitting
+
+    discriminator.add(Conv2D(filters=32, kernel_size=kernel_size, strides=2))
+    discriminator.add(BatchNormalization(momentum=0.8))
+    discriminator.add(LeakyReLU(0.2))
 
     discriminator.add(Flatten())
     discriminator.add(Dropout(0.2))

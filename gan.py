@@ -1,7 +1,7 @@
 from sre_constants import IN
 from keras.models import Input, Model
 
-def get_gan(discriminator, generator, initial_dim, optimizer):
+def get_gan(discriminator, generator, initial_dim):
     # why discriminator and not generator ??
     #discriminator.trainable = False
 
@@ -12,6 +12,6 @@ def get_gan(discriminator, generator, initial_dim, optimizer):
     gan_output = discriminator(x)
 
     gan = Model(inputs=gan_input, outputs=gan_output)
-    gan.compile(optimizer=optimizer, loss="binary_crossentropy")
+    gan.compile(loss="binary_crossentropy")
 
     return gan
