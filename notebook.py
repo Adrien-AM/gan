@@ -7,8 +7,13 @@ Original file is located at
     https://colab.research.google.com/drive/1lRlTXY5Qo2f-YY4Egj_L4nt-TNcfi5mW
 """
 
+import os
+# Disable tensorflow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 # %tensorflow_version 2.xs
 import tensorflow as tf
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from keras.layers import (BatchNormalization, Conv2D, Dense, LeakyReLU, ReLU, Dropout, Flatten,
@@ -22,26 +27,20 @@ from keras.optimizer_v2 import adam
 from keras.losses import BinaryCrossentropy
 from plot_keras_history import show_history
 from tqdm import tqdm
-import os
 
 from tensorflow.python.ops.numpy_ops import np_config
 from gan import GAN, GANMonitor, BATCH_SIZE
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+# Numpy functions for tensorflow
 np_config.enable_numpy_behavior()
 
 SIDE = 28
 IMAGE_SIZE = SIDE*SIDE
 INITIAL_DIM = 10
 CHANNELS = 1 # color channels, 1 for grayscale
-DATA_SIZE = 19200 # MUST BE == 0 mod BATCH_SIZE !!!
+DATA_SIZE = 19200
 
-from keras.backend import mean
-
-def wasserstein_loss(true, pred):
-    return mean(true * pred)
-
-def get_generator_v2(optimizer=None):
+def get_generator_v2():
     generator = Sequential(name="generator")
 
     weight_initializer = RandomNormal(0, 0.02)
@@ -66,12 +65,10 @@ def get_generator_v2(optimizer=None):
     
     return generator
 
-def get_discriminator_v2(optimizer=None):
+def get_discriminator_v2():
     discriminator = Sequential(name="discriminator")
 
     kernel_size = 4
-
-    #discriminator.add(Reshape((SIDE, SIDE, CHANNELS), input_shape=(SIDE, SIDE)))
 
     discriminator.add(Conv2D(filters=64, kernel_size=kernel_size, strides=2, padding="same", input_shape=(SIDE, SIDE, CHANNELS)))
     discriminator.add(BatchNormalization())
@@ -88,34 +85,17 @@ def get_discriminator_v2(optimizer=None):
 
     return discriminator
 
-def get_gan(discriminator, generator, initial_dim):
-    # why discriminator and not generator ??
-    #discriminator.trainable = False
-
-    gan_input = Input(shape=(initial_dim,))
-
-    # generate, then evaluate
-    x = generator(gan_input)
-    gan_output = discriminator(x)
-
-    gan = Model(inputs=gan_input, outputs=gan_output)
-    gan.compile(loss="binary_crossentropy")
-
-    return gan
-
-#os.environ['KERAS_BACKEND'] = "tensorflow"
 
 def load_minst_data():
+    print("Loading MNIST data ...", end="\t")
     # load the data
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    # normalize our inputs to be in the range[0, 1]
+    # normalize our inputs to be in the range[-1, 1]
     x_train = x_train.reshape(x_train.shape[0], SIDE, SIDE, 1).astype(np.float32)
     x_train = (x_train - 127.5) / 127.5
-    np.random.shuffle(x_train)
-    # convert x_train with a shape of (60000, 28, 28) to (60000, 784) so we have
-    # 784 columns per row
-    # x_train = x_train.reshape(60000, IMAGE_SIZE)
+    np.random.shuffle(x_train) # necessary ?
 
+    print("Done.")
     return (x_train[:DATA_SIZE], y_train, x_test, y_test)
 
 def train_v2(epochs):
@@ -124,8 +104,9 @@ def train_v2(epochs):
     discriminator = get_discriminator_v2()
     generator = get_generator_v2()
 
-    discriminator.summary()
-    generator.summary()
+    if "-v" in sys.argv:
+        discriminator.summary()
+        generator.summary()
     LR = 0.0002
 
     gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM)
@@ -139,8 +120,10 @@ def train_v2(epochs):
     return gan, history
 
 def generate_images(n, generator, discriminator):
+    # Generate some pictures from random noise
     initial = np.random.normal(size=[n, INITIAL_DIM])
     pics = generator.predict(initial)
+    # Check what discriminator says
     is_good = discriminator.predict(pics)
 
     pics = pics.reshape((n, SIDE, SIDE))
@@ -170,39 +153,49 @@ def test_discriminator(discriminator, generator, n=3):
 
     pics = np.array([data[np.random.randint(data.shape[0])] for _ in range(n)])
     prediction = discriminator.predict(pics)
+    # Should be 1
     print("Average prediction error for real data : ", np.average(abs(prediction-1)))
 
     fakes = np.random.rand(n, SIDE, SIDE)
     prediction = discriminator.predict(fakes)
+    # Should be 0
     print("Average prediction error for random fakes : ", np.average(prediction))
 
     generated = generator.predict(np.random.normal(size=(n, INITIAL_DIM)))
     prediction = discriminator.predict(generated)
+    # Should be 0
     print("Average prediction error for random generated : ", np.average(prediction))
 
-epochs = 50
+if __name__ == "__main__":
+    print("Usage : \n -n to use existing GAN\n -v to display NN layers")
+    epochs = 50
 
-new = True
+    new = "-n" not in sys.argv
 
-if new:
-    gan, history = train_v2(epochs)
-else: 
-    generator = load_model("last_generator.h5")
-    discriminator = load_model("last_discriminator.h5")
-    gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM)
+    if new:
+        print("Creating new GAN from scratch")
+        gan, history = train_v2(epochs)
+    else:
+        print("Using old discriminator and generator")
+        try:
+            generator = load_model("last_generator.h5")
+            discriminator = load_model("last_discriminator.h5")
+        except IOError:
+            print("Error loading files. Check last_generator.h5 and last_discriminator.h5 exist in current dir.")
+            exit(1)
 
-generate_images(4, gan.generator, gan.discriminator)
-if new:
-    show_history(history)
-    plt.show()
-#show_data(3)
-test_discriminator(gan.discriminator, gan.generator, 100)
+        gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM)
 
-if input("Save generator ? ([y]/n)") != "n":
-    gan.generator.save("last_generator.h5")
-if input("Save discriminator ? ([y]/n)") != "n":
-    gan.discriminator.save("last_discriminator.h5")
+    generate_images(4, gan.generator, gan.discriminator)
+    if new:
+        show_history(history)
+        plt.show()
 
-exit(0)
+    if input("Save generator ? ([y]/n)") != "n":
+        gan.generator.save("last_generator.h5")
+    if input("Save discriminator ? ([y]/n)") != "n":
+        gan.discriminator.save("last_discriminator.h5")
+
+    exit(0)
 
  

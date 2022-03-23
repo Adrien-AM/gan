@@ -71,46 +71,6 @@ class GAN(Model):
         self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
 
         return {"d_loss" : d_loss, "g_loss" : g_loss}
-'''
-    @tf.function
-    def train_step(self, data):
-        batch_size = BATCH_SIZE        
-        initial = tf.random.normal(shape=(batch_size, self.initial_dim))
-
-        # TRAIN DISCRIMINATOR
-        with tf.GradientTape() as tape:
-            prediction = self.discriminator(data, training=True)
-            labels = tf.ones((batch_size, 1), dtype=np.float32)
-            d_loss_real = self.loss_fn(labels, prediction) # prediction result on real data
-
-            fakes = self.generator(initial)
-            prediction = self.discriminator(fakes, training=True)
-            labels = tf.zeros((batch_size, 1), dtype=np.float32)
-            d_loss_fake = self.loss_fn(labels, prediction)
-
-            total_d_loss = (d_loss_fake + d_loss_real) / 2
-
-            
-        grads = tape.gradient(total_d_loss, self.discriminator.trainable_variables)
-        self.d_optimizer.apply_gradients(zip(grads, self.discriminator.trainable_variables))
-
-        # TRAIN GENERATOR
-        labels = tf.ones((batch_size, 1))
-        initial = tf.random.normal(shape=(batch_size, self.initial_dim))
-
-        with tf.GradientTape() as tape:
-            fakes = self.generator(initial, training=True)
-            prediction = self.discriminator(fakes, training=False) # True ?s
-            g_loss = self.loss_fn(labels, prediction)
-
-        grads = tape.gradient(g_loss, self.generator.trainable_variables)
-        self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_variables))
-
-        self.d_loss.update_state(total_d_loss)
-        self.g_loss.update_state(g_loss)
-        
-        return {"d_loss": self.d_loss.result(), "g_loss": self.g_loss.result()}
-'''
 
 from keras.callbacks import Callback
 import matplotlib.pyplot as plt
