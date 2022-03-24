@@ -1,6 +1,13 @@
 # Do not push data
-landscapes/*
+data/*
 *.npy
+
+# models
+*.model
+*.h5
+
+# Data and trace
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
