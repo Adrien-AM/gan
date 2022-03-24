@@ -22,7 +22,7 @@ from keras.layers import (BatchNormalization, Conv2D, Dense, LeakyReLU, ReLU, Dr
 from keras.layers.convolutional import Conv2DTranspose
 from keras.models import Sequential, Input, Model, load_model
 from keras.initializers.initializers_v2 import RandomNormal 
-from keras.datasets import mnist
+from keras.datasets import mnist, fashion_mnist
 from keras.optimizer_v2 import adam
 from keras.losses import BinaryCrossentropy
 from plot_keras_history import show_history
@@ -38,7 +38,7 @@ SIDE = 28
 IMAGE_SIZE = SIDE*SIDE
 INITIAL_DIM = 10
 CHANNELS = 1 # color channels, 1 for grayscale
-DATA_SIZE = 19200
+DATA_SIZE = 20000
 
 def get_generator_v2():
     generator = Sequential(name="generator")
@@ -89,7 +89,7 @@ def get_discriminator_v2():
 def load_minst_data():
     print("Loading MNIST data ...", end="\t")
     # load the data
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
     # normalize our inputs to be in the range[-1, 1]
     x_train = x_train.reshape(x_train.shape[0], SIDE, SIDE, 1).astype(np.float32)
     x_train = (x_train - 127.5) / 127.5
@@ -98,9 +98,21 @@ def load_minst_data():
     print("Done.")
     return (x_train[:DATA_SIZE], y_train, x_test, y_test)
 
-def train_v2(epochs):
-    data, _, _, _ = load_minst_data()
+def load_kana_data():
+    print("Loading K49-MNIST data ...", end="\t")
 
+    loader = np.load("data/kana-mnist/k49-train-imgs.npz")
+    data = np.array(loader['arr_0'])[:DATA_SIZE]
+    data = data.reshape(data.shape[0], SIDE, SIDE, 1).astype(np.float32)
+    data = (data - 127.5) / 127.5
+    np.random.shuffle(data)
+
+    loader.close()
+
+    print("Done.\nShape : ", data.shape)
+    return data
+
+def train_v2(epochs, data):
     discriminator = get_discriminator_v2()
     generator = get_generator_v2()
 
@@ -135,9 +147,7 @@ def generate_images(n, generator, discriminator):
     plt.show(block=True)
 
 
-def show_data(n=3):
-    data, _, _, _ = load_minst_data()
-
+def show_data(data, n=3):
     pics = np.array([data[np.random.randint(data.shape[0])] for _ in range(n)])
     pics = pics.reshape((n, SIDE, SIDE))
 
@@ -148,9 +158,7 @@ def show_data(n=3):
     plt.show(block=True)
 
 
-def test_discriminator(discriminator, generator, n=3):
-    data, _, _, _ = load_minst_data()
-
+def test_discriminator(data, discriminator, generator, n=3):
     pics = np.array([data[np.random.randint(data.shape[0])] for _ in range(n)])
     prediction = discriminator.predict(pics)
     # Should be 1
@@ -168,13 +176,15 @@ def test_discriminator(discriminator, generator, n=3):
 
 if __name__ == "__main__":
     print("Usage : \n -n to use existing GAN\n -v to display NN layers")
-    epochs = 50
+    epochs = 30
+
+    data = load_kana_data()
 
     new = "-n" not in sys.argv
 
     if new:
         print("Creating new GAN from scratch")
-        gan, history = train_v2(epochs)
+        gan, history = train_v2(epochs, data)
     else:
         print("Using old discriminator and generator")
         try:

@@ -1,5 +1,5 @@
 # Do not push data
-landscapes/*
+data/*
 *.npy
 
 # models
