@@ -5,7 +5,7 @@ from tqdm import tqdm
 from glob import iglob
 import os
 
-SIDE = 240 # size must be divisible by 8
+SIDE = 160 # size must be divisible by 8
 IMAGE_SIZE = SIDE*SIDE
 CHANNELS = 3 # color channels, 3 for rgb
 
