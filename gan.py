@@ -8,28 +8,13 @@ import tensorflow as tf
 
 BATCH_SIZE = 32
 
-def get_gan(discriminator, generator, initial_dim):
-    # why discriminator and not generator ??
-    #discriminator.trainable = False
-
-    gan_input = Input(shape=(initial_dim,))
-
-    # generate, then evaluate
-    x = generator(gan_input)
-    gan_output = discriminator(x)
-
-    gan = Model(inputs=gan_input, outputs=gan_output)
-    gan.compile(loss="binary_crossentropy")
-
-    return gan
-
-
 class GAN(Model):
-    def __init__(self, disc, gen, initial):
+    def __init__(self, disc, gen, initial, clip_value):
         super().__init__()
         self.discriminator = disc
         self.generator = gen
         self.initial_dim = initial
+        self.clip_value = clip_value
         self.g_loss = Mean(name="g_loss")
         self.d_loss = Mean(name="d_loss")
 
@@ -46,20 +31,26 @@ class GAN(Model):
     def train_step(self, data):
         real_images = data
         batch_size = tf.shape(real_images)[0]
-        initial = tf.random.normal(shape=(batch_size, self.initial_dim))
+        for _ in range(5):
+            initial = tf.random.normal(shape=(batch_size, self.initial_dim))
 
-        generated = self.generator(initial)
-        combined = tf.concat([generated, real_images], axis=0)
-        labels = tf.concat([tf.zeros((batch_size, 1)), 
-                            tf.ones((batch_size, 1))], axis=0)
+            generated = self.generator(initial)
+            combined = tf.concat([generated, real_images], axis=0)
+            labels = tf.concat([tf.fill((batch_size, 1), -1), 
+                                tf.ones((batch_size, 1))], axis=0)
 
-        labels += 0.05 * tf.random.uniform(tf.shape(labels))
+            labels += 0.05 * tf.random.uniform(tf.shape(labels))
 
-        with tf.GradientTape() as tape:
-            predictions = self.discriminator(combined)
-            d_loss = self.loss_fn(labels, predictions)
-        grads = tape.gradient(d_loss, self.discriminator.trainable_weights)
-        self.d_optimizer.apply_gradients(zip(grads, self.discriminator.trainable_weights))
+            with tf.GradientTape() as tape:
+                predictions = self.discriminator(combined)
+                d_loss = self.loss_fn(labels, predictions)
+            grads = tape.gradient(d_loss, self.discriminator.trainable_weights)
+            self.d_optimizer.apply_gradients(zip(grads, self.discriminator.trainable_weights))
+
+            for layer in discriminator.layers:
+                weights = layer.get_weights()
+                weights = tf.clip_by_value(weights, -self.clip_value, self.clip_value)
+                layer.set_weights(weights)
 
         initial = tf.random.normal(shape=(batch_size, self.initial_dim))
         labels = tf.ones((batch_size, 1))

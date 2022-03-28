@@ -23,6 +23,7 @@ from keras.layers.convolutional import Conv2DTranspose
 from keras.models import Sequential, load_model
 from keras.initializers.initializers_v2 import RandomNormal 
 from keras.optimizer_v2 import adam
+from keras.optimizers import RMSProp
 from keras.losses import BinaryCrossentropy
 from plot_keras_history import show_history
 
@@ -34,8 +35,11 @@ import data_loaders as loader
 from tensorflow.python.ops.numpy_ops import np_config
 np_config.enable_numpy_behavior()
 
-INITIAL_DIM = 128
+INITIAL_DIM = 100
 DATA_SIZE = 2000
+
+def wasserstein_loss(y_true, y_pred):
+    return keras.backend.mean(y_true * y_pred)
 
 def get_generator_v2():
     generator = Sequential(name="generator")
@@ -64,7 +68,7 @@ def get_generator_v2():
     generator.add(BatchNormalization())
     generator.add(ReLU(0.2))
 
-    generator.add(Conv2D(filters=CHANNELS, kernel_size=kernel_size, padding="same", activation="sigmoid"))
+    generator.add(Conv2D(filters=CHANNELS, kernel_size=kernel_size, padding="same", activation="tanh"))
     
     return generator
 
@@ -88,7 +92,7 @@ def get_discriminator_v2():
     discriminator.add(Flatten())
     discriminator.add(Dropout(0.3))
 
-    discriminator.add(Dense(1, activation="sigmoid"))
+    discriminator.add(Dense(1, activation="linear"))
 
     return discriminator
 
@@ -99,13 +103,13 @@ def train_v2(epochs, data):
     if "-v" in sys.argv:
         discriminator.summary()
         generator.summary()
-    LR = 0.0002
+    LR = 0.0001
 
-    gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM)
+    gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM, clip_value=0.01)
     gan.compile(
-        d_optimizer=adam.Adam(LR, beta_1=0.5),
-        g_optimizer=adam.Adam(LR, beta_1=0.5),
-        loss_function=BinaryCrossentropy(label_smoothing=0.05)
+        d_optimizer=RMSProp(LR),
+        g_optimizer=RMSProp(LR),
+        loss_function=wasserstein_loss()
     )
 
     history = gan.fit(x=data, epochs=epochs, batch_size=BATCH_SIZE, callbacks=[GANMonitor(num_img=4, initial=INITIAL_DIM)])
