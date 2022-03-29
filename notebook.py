@@ -16,7 +16,7 @@ import tensorflow as tf
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.layers import (BatchNormalization, Conv2D, Dense, LeakyReLU, ReLU, Dropout, Flatten,
+from keras.layers import (LayerNormalization, Conv2D, Dense, LeakyReLU, ReLU, Dropout, Flatten,
                           Reshape)
 # Commented out IPython magic to ensure Python compatibility.
 from keras.layers.convolutional import Conv2DTranspose
@@ -93,15 +93,15 @@ def get_discriminator_v2():
     clip_value = 0.005
 
     discriminator.add(Conv2D(filters=64, kernel_size=kernel_size, strides=2, padding="same", input_shape=(SIDE, SIDE, CHANNELS), kernel_constraint=ClipConstraint(clip_value)))
-    discriminator.add(BatchNormalization())
+    discriminator.add(LayerNormalization())
     discriminator.add(LeakyReLU(0.2))
 
     discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
-    discriminator.add(BatchNormalization())
+    discriminator.add(LayerNormalization())
     discriminator.add(LeakyReLU(0.2))
 
     discriminator.add(Conv2D(filters=256, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
-    discriminator.add(BatchNormalization())
+    discriminator.add(LayerNormalization())
     discriminator.add(LeakyReLU(0.2))
 
     discriminator.add(Flatten())
@@ -120,7 +120,7 @@ def train_v2(epochs, data):
         generator.summary()
     LR = 0.0001
 
-    gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM, clip_value=0.01)
+    gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM, clip_value=0.01, lmbda=10)
     gan.compile(
         d_optimizer=rmsprop_v2.RMSProp(LR),
         g_optimizer=rmsprop_v2.RMSProp(LR),

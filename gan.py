@@ -7,7 +7,7 @@ import tensorflow as tf
 BATCH_SIZE = 32
 
 class GAN(Model):
-    def __init__(self, disc, gen, initial, clip_value):
+    def __init__(self, disc, gen, initial, clip_value, lmbda):
         super().__init__()
         self.discriminator = disc
         self.generator = gen
@@ -15,6 +15,7 @@ class GAN(Model):
         self.clip_value = clip_value
         self.g_loss = Mean(name="g_loss")
         self.d_loss = Mean(name="d_loss")
+        self.lmbda = lmbda
 
     def compile(self, d_optimizer, g_optimizer, loss_function):
         super(GAN, self).compile()
@@ -31,27 +32,30 @@ class GAN(Model):
         batch_size = tf.shape(real_images)[0]
         initial = tf.random.normal(shape=(batch_size, self.initial_dim))
 
-        generated = self.generator(initial)
-        combined = tf.concat([generated, real_images], axis=0)
-        labels = tf.concat([tf.ones((batch_size, 1)), 
-                            tf.fill((batch_size, 1), -1.)], axis=0)
-
-        labels += 0.05 * tf.random.uniform(tf.shape(labels), minval=-1., maxval=1.)
-
         with tf.GradientTape() as tape:
-            predictions = self.discriminator(combined)
-            d_loss = self.loss_fn(labels, predictions)
+            disc_fake = self.discriminator(generated)
+            disc_real = self.discriminator(real_images)
+
+            generated = self.generator(initial)
+
+            alpha = tf.random.uniform(shape=[batch_size, 1, 1, 1],
+            minval=0, maxval=1.)
+
+            diffs = generated - real_images
+            interpolates = real_images + (alpha * diffs)
+            gradients = tf.gradients(self.discriminator(interpolates), interpolates)
+            slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1,2,3]))
+            gp = tf.reduce_mean((slopes - 1.) ** 2)
+
+            d_loss_real = tf.reduce_mean(disc_real)
+            d_loss_fake = tf.reduce_mean(disc_fake)
+            d_loss = -(d_loss_real - d_loss_fake) + self.lmbda * gp
+
+            g_loss = d_loss_real - d_loss_fake
+
         grads = tape.gradient(d_loss, self.discriminator.trainable_weights)
         self.d_optimizer.apply_gradients(zip(grads, self.discriminator.trainable_weights))
 
-
-        batch_size_generator = tf.cast(batch_size / 4, tf.int64)
-        initial = tf.random.normal(shape=(batch_size_generator, self.initial_dim))
-        labels = tf.fill((batch_size_generator, 1), -1.)
-
-        with tf.GradientTape() as tape:
-            predictions = self.discriminator(self.generator(initial))
-            g_loss = self.loss_fn(labels, predictions)
         grads = tape.gradient(g_loss, self.generator.trainable_weights)
         self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
 
