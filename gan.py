@@ -1,6 +1,4 @@
-import sys
-from turtle import shape
-from keras.models import Input, Model
+from keras.models import Model
 from keras.metrics import Mean
 from keras.preprocessing.image import array_to_img
 import numpy as np
@@ -31,29 +29,25 @@ class GAN(Model):
     def train_step(self, data):
         real_images = data
         batch_size = tf.shape(real_images)[0]
-        for _ in range(5):
-            initial = tf.random.normal(shape=(batch_size, self.initial_dim))
-
-            generated = self.generator(initial)
-            combined = tf.concat([generated, real_images], axis=0)
-            labels = tf.concat([tf.fill((batch_size, 1), -1), 
-                                tf.ones((batch_size, 1))], axis=0)
-
-            labels += 0.05 * tf.random.uniform(tf.shape(labels))
-
-            with tf.GradientTape() as tape:
-                predictions = self.discriminator(combined)
-                d_loss = self.loss_fn(labels, predictions)
-            grads = tape.gradient(d_loss, self.discriminator.trainable_weights)
-            self.d_optimizer.apply_gradients(zip(grads, self.discriminator.trainable_weights))
-
-            for layer in discriminator.layers:
-                weights = layer.get_weights()
-                weights = tf.clip_by_value(weights, -self.clip_value, self.clip_value)
-                layer.set_weights(weights)
-
         initial = tf.random.normal(shape=(batch_size, self.initial_dim))
-        labels = tf.ones((batch_size, 1))
+
+        generated = self.generator(initial)
+        combined = tf.concat([generated, real_images], axis=0)
+        labels = tf.concat([tf.ones((batch_size, 1)), 
+                            tf.fill((batch_size, 1), -1.)], axis=0)
+
+        labels += 0.05 * tf.random.uniform(tf.shape(labels), minval=-1., maxval=1.)
+
+        with tf.GradientTape() as tape:
+            predictions = self.discriminator(combined)
+            d_loss = self.loss_fn(labels, predictions)
+        grads = tape.gradient(d_loss, self.discriminator.trainable_weights)
+        self.d_optimizer.apply_gradients(zip(grads, self.discriminator.trainable_weights))
+
+
+        batch_size_generator = tf.cast(batch_size / 4, tf.int64)
+        initial = tf.random.normal(shape=(batch_size_generator, self.initial_dim))
+        labels = tf.fill((batch_size_generator, 1), -1.)
 
         with tf.GradientTape() as tape:
             predictions = self.discriminator(self.generator(initial))
@@ -62,6 +56,7 @@ class GAN(Model):
         self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
 
         return {"d_loss" : d_loss, "g_loss" : g_loss}
+
 
 from keras.callbacks import Callback
 import matplotlib.pyplot as plt

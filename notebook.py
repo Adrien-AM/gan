@@ -22,13 +22,13 @@ from keras.layers import (BatchNormalization, Conv2D, Dense, LeakyReLU, ReLU, Dr
 from keras.layers.convolutional import Conv2DTranspose
 from keras.models import Sequential, load_model
 from keras.initializers.initializers_v2 import RandomNormal 
-from keras.optimizer_v2 import adam
-from keras.optimizers import RMSProp
-from keras.losses import BinaryCrossentropy
+from keras.optimizers import rmsprop_v2
+from keras.backend import mean
+from keras.constraints import Constraint
 from plot_keras_history import show_history
 
 from gan import GAN, GANMonitor, BATCH_SIZE
-from data_loaders import IMAGE_SIZE, SIDE, CHANNELS
+from data_loaders import SIDE, CHANNELS
 import data_loaders as loader
 
 # Numpy functions for tensorflow
@@ -36,10 +36,20 @@ from tensorflow.python.ops.numpy_ops import np_config
 np_config.enable_numpy_behavior()
 
 INITIAL_DIM = 100
-DATA_SIZE = 2000
 
 def wasserstein_loss(y_true, y_pred):
-    return keras.backend.mean(y_true * y_pred)
+    return mean(y_true * y_pred)
+
+class ClipConstraint(Constraint):
+    def __init__(self, clip_value) -> None:
+        self.clip_val = clip_value
+
+    def __call__(self, w):
+        return tf.clip_by_value(w, -self.clip_val, self.clip_val) 
+
+    def get_config(self):
+        return {'clip_value': self.clip_val}
+
 
 def get_generator_v2():
     generator = Sequential(name="generator")
@@ -76,18 +86,19 @@ def get_discriminator_v2():
     discriminator = Sequential(name="discriminator")
 
     kernel_size = 5
+    clip_value = 0.005
 
-    discriminator.add(Conv2D(filters=64, kernel_size=kernel_size, strides=2, padding="same", input_shape=(SIDE, SIDE, CHANNELS)))
+    discriminator.add(Conv2D(filters=64, kernel_size=kernel_size, strides=2, padding="same", input_shape=(SIDE, SIDE, CHANNELS), kernel_constraint=ClipConstraint(clip_value)))
     discriminator.add(BatchNormalization())
     discriminator.add(LeakyReLU(0.2))
 
-    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same"))
+    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
     discriminator.add(BatchNormalization())
     discriminator.add(LeakyReLU(0.2))
 
-    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same"))
+    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
     discriminator.add(BatchNormalization())
-    discriminator.add(LeakyReLU(0.2))    
+    discriminator.add(LeakyReLU(0.2))
 
     discriminator.add(Flatten())
     discriminator.add(Dropout(0.3))
@@ -107,9 +118,9 @@ def train_v2(epochs, data):
 
     gan = GAN(disc=discriminator, gen=generator, initial=INITIAL_DIM, clip_value=0.01)
     gan.compile(
-        d_optimizer=RMSProp(LR),
-        g_optimizer=RMSProp(LR),
-        loss_function=wasserstein_loss()
+        d_optimizer=rmsprop_v2.RMSProp(LR),
+        g_optimizer=rmsprop_v2.RMSProp(LR),
+        loss_function=wasserstein_loss
     )
 
     history = gan.fit(x=data, epochs=epochs, batch_size=BATCH_SIZE, callbacks=[GANMonitor(num_img=4, initial=INITIAL_DIM)])
@@ -160,9 +171,9 @@ def test_discriminator(data, discriminator, generator, n=3):
 
 if __name__ == "__main__":
     print("Usage : \n -n to use existing GAN\n -v to display NN layers")
-    epochs = 50
+    epochs = 200
 
-    data = loader.load_landscapes_data(DATA_SIZE)
+    data = loader.load_landscapes_data()
     
     new = "-n" not in sys.argv
 
