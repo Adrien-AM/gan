@@ -57,7 +57,7 @@ def get_generator_v2():
     weight_initializer = RandomNormal(0, 0.02)
     kernel_size = 5
 
-    first_layer_dim = int(SIDE / 8)
+    first_layer_dim = int(SIDE / 16)
 
     # Image must be 28x28 -> 28=7*2*2, so 2 conv layers with 7 as base dim
     generator.add(Dense(first_layer_dim * first_layer_dim * 128, input_dim=INITIAL_DIM))
@@ -66,7 +66,11 @@ def get_generator_v2():
 
     generator.add(Reshape((first_layer_dim, first_layer_dim, 128)))
 
-    generator.add(Conv2DTranspose(filters=64, kernel_size=kernel_size, strides=2, padding="same", kernel_initializer=weight_initializer))
+    generator.add(Conv2DTranspose(filters=128, kernel_size=kernel_size, strides=2, padding="same", kernel_initializer=weight_initializer))
+    generator.add(BatchNormalization())
+    generator.add(ReLU(0.2))
+
+    generator.add(Conv2DTranspose(filters=256, kernel_size=kernel_size, strides=2, padding="same", kernel_initializer=weight_initializer))
     generator.add(BatchNormalization())
     generator.add(ReLU(0.2))
 
@@ -96,7 +100,7 @@ def get_discriminator_v2():
     discriminator.add(BatchNormalization())
     discriminator.add(LeakyReLU(0.2))
 
-    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
+    discriminator.add(Conv2D(filters=256, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
     discriminator.add(BatchNormalization())
     discriminator.add(LeakyReLU(0.2))
 

@@ -8,7 +8,7 @@ import os
 SIDE = 160 # size must be divisible by 8
 IMAGE_SIZE = SIDE*SIDE
 CHANNELS = 3 # color channels, 3 for rgb
-DATA_SIZE = 2000
+DATA_SIZE = 2400
 
 def load_landscapes_data():
     data = []
