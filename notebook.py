@@ -16,7 +16,7 @@ import tensorflow as tf
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.layers import (LayerNormalization, Conv2D, Dense, LeakyReLU, ReLU, Dropout, Flatten,
+from keras.layers import (LayerNormalization, BatchNormalization, Conv2D, Dense, LeakyReLU, ReLU, Dropout, Flatten,
                           Reshape)
 # Commented out IPython magic to ensure Python compatibility.
 from keras.layers.convolutional import Conv2DTranspose

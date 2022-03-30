@@ -32,11 +32,11 @@ class GAN(Model):
         batch_size = tf.shape(real_images)[0]
         initial = tf.random.normal(shape=(batch_size, self.initial_dim))
 
-        with tf.GradientTape() as tape:
+        with tf.GradientTape(persistent=True) as tape:
+            generated = self.generator(initial)
+
             disc_fake = self.discriminator(generated)
             disc_real = self.discriminator(real_images)
-
-            generated = self.generator(initial)
 
             alpha = tf.random.uniform(shape=[batch_size, 1, 1, 1],
             minval=0, maxval=1.)
@@ -44,7 +44,7 @@ class GAN(Model):
             diffs = generated - real_images
             interpolates = real_images + (alpha * diffs)
             gradients = tf.gradients(self.discriminator(interpolates), interpolates)
-            slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1,2,3]))
+            slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients)))
             gp = tf.reduce_mean((slopes - 1.) ** 2)
 
             d_loss_real = tf.reduce_mean(disc_real)
@@ -58,6 +58,8 @@ class GAN(Model):
 
         grads = tape.gradient(g_loss, self.generator.trainable_weights)
         self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
+
+        del tape
 
         return {"d_loss" : d_loss, "g_loss" : g_loss}
 
