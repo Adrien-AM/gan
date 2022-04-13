@@ -5,10 +5,10 @@ from tqdm import tqdm
 from glob import iglob
 import os
 
-SIDE = 160 # size must be divisible by 8
+SIDE = 196 # size must be divisible by 8
 IMAGE_SIZE = SIDE*SIDE
 CHANNELS = 3 # color channels, 3 for rgb
-DATA_SIZE = 1200
+DATA_SIZE = 4319
 
 def load_landscapes_data():
     data = []

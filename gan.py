@@ -4,7 +4,7 @@ from keras.preprocessing.image import array_to_img
 import numpy as np
 import tensorflow as tf
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 
 class GAN(Model):
     def __init__(self, disc, gen, initial, clip_value, lmbda):

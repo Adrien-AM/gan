@@ -92,15 +92,15 @@ def get_discriminator_v2():
     kernel_size = 5
     clip_value = 0.005
 
-    discriminator.add(Conv2D(filters=64, kernel_size=kernel_size, strides=2, padding="same", input_shape=(SIDE, SIDE, CHANNELS), kernel_constraint=ClipConstraint(clip_value)))
+    discriminator.add(Conv2D(filters=64, kernel_size=kernel_size, strides=2, padding="same", input_shape=(SIDE, SIDE, CHANNELS)))
     discriminator.add(LayerNormalization())
     discriminator.add(LeakyReLU(0.2))
 
-    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
+    discriminator.add(Conv2D(filters=128, kernel_size=kernel_size, strides=2, padding="same"))
     discriminator.add(LayerNormalization())
     discriminator.add(LeakyReLU(0.2))
 
-    discriminator.add(Conv2D(filters=256, kernel_size=kernel_size, strides=2, padding="same", kernel_constraint=ClipConstraint(clip_value)))
+    discriminator.add(Conv2D(filters=256, kernel_size=kernel_size, strides=2, padding="same"))
     discriminator.add(LayerNormalization())
     discriminator.add(LeakyReLU(0.2))
 
